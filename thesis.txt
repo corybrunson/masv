@@ -1,0 +1,720 @@
+-- path = append(path,"/Users/Cornelioid/Documents/academics/Thesis_2010/M2/")
+-- load("allCustoms.txt")
+
+
+-- MARK'S FUNCTIONS
+
+-- Kronecker delta
+kDelta = (a,b) -> if a == b then 1 else 0
+
+-- append x to all visible lists in ll
+appendAll = (ll,x) -> (
+  (i -> append(i,x)) \ ll
+);
+
+-- (lists of length n with r 1s and n-r 0s)
+subsetBV = (n,r) -> (
+  if r==0 then (
+    if n==0 then {{}}
+    else appendAll(subsetBV(n-1,0),0)
+  )
+  else if n == 0 then {}
+  else appendAll(subsetBV(n-1,r),0) | appendAll(subsetBV(n-1,r-1),1)
+);
+
+-- Find the position of the first ascent in the list "lis"
+firstAscent = lis -> (
+  i:=0;
+  while i<#lis-1 and lis#i >= lis#(i+1) do i=i+1;
+  i
+);
+
+-- swap the i-th and (i+1)-th elements in the list "lis"
+swapList = (lis,i) -> (
+  join(take(lis,i),{lis#(i+1),lis#i},drop(lis,i+2))
+);
+
+-- append zeroes to a list "lis" until it has
+-- length "len"
+zeroExtend = (lis,len) -> (
+  if #lis >= len then lis
+  else join(lis,(len-#lis):0)
+);
+
+-- compute the i-th isobaric divided difference operator
+-- acting on the polynomial p(x_0,...,x_(n-1))
+isoddiff = (p,i,S) -> (
+  numerator((S_i * p - S_(i+1)*sub(p,{S_i=>S_(i+1),S_(i+1)=>S_i}))/(S_i-S_(i+1)))
+);
+
+-- compute the type A Demazure character
+-- whose lowest weight is the list of nonnegative integers "al"
+demChar = (al,S) -> (
+  if #al > numgens(S) then (
+    print("error: too many parts");
+    return(0);
+  );
+  i := firstAscent(al);
+  if (i==(#al-1)) then (
+    S_(al)
+  ) else (
+    isoddiff(demChar(swapList(al,i),S),i,S)
+  )
+);
+
+-- compute the Schur polynomial in m variables
+-- where m <= the number of generators of S
+-- Uses the fact that, for example,
+-- the Demazure character of weight {0,0,1,1,2}
+-- is the Schur polynomial s_{(2,1,1)}[x_1,x_2,x_3,x_4,x_5].
+schurPoly = (la,m,S) -> (
+  demChar(reverse(zeroExtend(la,m)),S)
+);
+
+-- expand a polynomial in the x variables
+-- into Demazure characters
+demCharExpansion = (f,S) -> (
+  g := f;
+  ex := {};
+  while g =!= 0_S do (
+    lt := leadTerm(g);
+    lc := leadCoefficient(lt);
+    exps := (exponents(lt))_0;
+    ex = append(ex,{exps,lc});
+    g = g - lc_S * demChar(exps,S);
+  );
+  ex
+);
+
+-- give PD dual of a demazure character expansion in (b x a) box
+PDChars = (expn,b,a) -> (
+  if max(for i from 0 to #expn-1 list max((expn_i)_0)) > a then (
+    print("error: partitions too wide");
+    return(0);
+  );
+  if #((expn_0)_0) > b then (
+    print("error: partitions too long");
+    return(0);
+  );
+  PD := for i from 0 to #expn-1 list { (for j from 1 to b list
+a-((expn_i)_0)_(b-j)) , (expn_i)_1 };
+  PD
+);
+
+-- instead of returning 0, just skip partitions that don't fit
+PDCharsIg = (expn,b,a) -> (
+  PD := {};
+  partn := {};
+  for i from 0 to #expn-1 do (
+    if (
+      max((expn_i)_0) > a or #((expn_i)_0) > b
+    ) then (
+      --print("warning: partition doesn't fit")
+    ) else (
+      partn = join((expn_i)_0,for j from #((expn_i)_0) to b-1 list 0);
+      PD = append( PD , { (for j from 1 to b list a-partn_(b-j)) , (expn_i)_1 } )
+    )
+  );
+  return PD
+);
+
+-- give PD dual of a demazure character expansion in (b x a) box,
+-- checking that each character is nondecreasing,
+-- and ignoring those that do not fit
+PDCharsCory = (expn,b,a) ->
+( PD := {};
+  for i from 0 to #expn-1 do
+  ( if (expn_i)_0 == sort((expn_i)_0) then
+    ( if max((expn_i)_0) <= a then
+      ( PD = append(PD,{ (for j from 1 to b list a-((expn_i)_0)_(b-j)) , (expn_i)_1 })
+      )
+    ) else
+    ( print("warning: character not nondecreasing")
+    )
+  );
+  PD
+);
+
+-- ALTERNATIVE: for sideways boxes, want nonincreasing characters
+PDCharsAlt = (expn,b,a) ->
+( PD := {};
+  for i from 0 to #expn-1 do
+  ( if (expn_i)_0 == reverse(sort((expn_i)_0)) then
+    ( if max((expn_i)_0) <= a then
+      ( PD = append(PD,{ (for j from 1 to b list a-((expn_i)_0)_(b-j)) , (expn_i)_1 })
+      )
+    ) else
+    ( print("warning: character not nonincreasing")
+    )
+  );
+  PD
+);
+
+-- calculate polynomial from demazure character expansion
+demCharPoly = (expn,m,S) -> (
+  f := 0_S;
+  for i from 0 to #expn-1 do f = f + (expn_i)_1*schurPoly(reverse((expn_i)_0),m,S);
+  f
+);
+
+-- calculate PD schur polynomial in (b x a) box
+PDSchurPoly = (f,S,b,a) -> (
+  fSchurs := demCharExpansion(f,S);
+  fPDSchurs := PDChars(fSchurs,b,a);
+  demCharPoly(fPDSchurs,b,S)
+);
+
+lstToPlus = (lst,r,c) -> (
+  toList \ toList(table(0..r-1,0..c-1, (i,j)->if member(i*c+j,lst) then "+" else "."))
+);
+
+mIToRC = (II,rows,cols) -> (
+  v := gens(II);
+  r := rank(source(v));
+  lst := for i from 0 to r-1 list index(v_(0,i));
+  lstToPlus(lst,rows,cols)
+);
+
+lstToBinary = (lst,r,c) -> (
+  toList \ toList(table(0..r-1,0..c-1, (i,j)->if member(i*c+j,lst) then 1 else 0))
+);
+
+mIToVec = (II,rows,cols) -> (
+  v := gens(II);
+  r := rank(source(v));
+  lst := for i from 0 to r-1 list index(v_(0,i));
+  sum \ transpose(lstToBinary(lst,rows,cols))
+);
+
+vecToMonom = (v,S) -> (
+  lst = for i from 0 to numgens(S)-1 list S_i^(v_i);
+  product(lst)
+);
+
+printlnRC = ln -> (
+  print(concatenate(ln));
+);
+
+printRC = rcg -> (
+  scan(rcg,printlnRC);
+  print(" ");
+);
+
+
+-- CORY'S FUNCTIONS
+
+-- PARTITIONS
+
+-- Transpose (or conjugate) a given partition.
+transposePartition = lambda -> (
+  lambda' := append (lambda, 0);
+  mu := {};
+  for i from 0 to #lambda - 1 do (
+    j = #lambda - i;
+    mu = join (mu, (lambda'_(j - 1) - lambda'_j):j);
+  );
+  mu
+)
+
+-- Is the partition lambda an n-core?
+partitionIsCore = (lambda, n) -> (
+  l = #lambda;
+  elts = for i in 0..l - 1 list lambda_i - i;
+  for i in 0..l - 1 do (
+    s := 1;
+    while lambda_i - i - n * s > -l do (
+      if not member(lambda_i - i - n * s, elts) then return false;
+      s = s + 1
+    )
+  );
+  return true
+)
+
+-- IDEAL GENERATORS
+
+-- antidiagonal term of a square submatrix
+sqantidiag = (m, I, J) -> (
+  D := 0;
+  if #I == #J then (
+    Dlist := for i from 0 to #I - 1 list m_(I_i, J_(#J - 1 - i));
+    D = product(Dlist)
+  );
+  D
+)
+
+-- irredundant vanishing minors by size and a list of their leading terms
+ladderMinors = (lambda, a, b, m, rows, pivs, R) -> (
+  j := 0;
+  F := {};
+  G := {};
+  rowsubs := {};
+  usedsubs := {};
+  keepsubs := {};
+  while j < b do (
+    j = j + 1;
+    prevsubs = flatten usedsubs;
+    keepsubs = {};
+    subs := subsets (a + b, j);
+    Ftemp := {};
+    for i from 0 to #subs - 1 do (
+      if (
+        (subs_i)_(j - 1) < pivs_(j - 1) and
+        not member(true, for k from 0 to #prevsubs - 1 list isSubset (prevsubs_k, subs_i))
+      ) then (
+        Ftemp = append (Ftemp, minors (j, submatrix (m, rows, subs_i)));
+        keepsubs = append (keepsubs, subs_i)
+      )
+    );
+    if sum(Ftemp) == 0 then F = append(F, ideal 0_R) else (
+      F = append(F, sum Ftemp);
+      leads := {};
+      for k from 0 to #keepsubs - 1 do (
+        rowsubs = subsets (b, j);
+        for l from 0 to #rowsubs - 1 do (
+          leads = append (leads, sqantidiag (m, rowsubs_l, keepsubs_k))
+        )
+      );
+      if leads == {} then G = append (G, 0_R) else G = append(G, ideal leads)
+    );
+    usedsubs = append (usedsubs, keepsubs);
+  );
+  {F, G}
+)
+
+-- lists of nonnegs of length len, weight wt, and max value cap
+subsetCV = (len, wt, cap) ->
+( partns := partitions(wt, cap);
+  partlen := 0;
+  scapes := {};
+  for i from 0 to #partns - 1 do
+  ( partlen = # (partns_i);
+    if partlen <= len then
+    ( partlist := for j from 0 to partlen - 1 list (partns_i)_j;
+      app := for j from 0 to len - partlen - 1 list 0;
+      diagm := join (partlist, app);
+      scapes = join (scapes, elements set permutations diagm) ) );
+  scapes
+)
+
+-- abacus slides
+
+-- 2013/12/25 (k_max + 1)-shuffles on subsets confined to length-n windows
+windowShuffles = (n, m, rows, cols, pivs, R) -> (
+  shufinds := {};
+  Shtemp := {};
+  Sh := {};
+  for l from 2 to min(n, #rows) do (
+    syms := permutations(l);
+    pivset := subsets(pivs, l);
+    colset := subsets(cols, l);
+    rowset := subsets(rows, l);
+    for c from 0 to #colset - 1 do if max colset_c - min colset_c < n then (
+      maxk := -1;
+      for p from 0 to #pivset - 1 do (
+        for w from 0 to #syms - 1 do if
+        all(colset_c, (pivset_p)_(syms_w), (x, y) -> x >= y) then (
+          buffers := for i from 0 to l-1 list (
+            b := ((pivset_p)_(syms_w))_i;
+            while b + n < #cols and not member(b + n, pivset_p) do b = b + n;
+            b
+          );
+          beads := for i from 0 to l - 1 list
+          floor ((min ((colset_c)_i, buffers_i) - ((pivset_p)_(syms_w))_i) / n);
+          if any (beads, x -> x < 0) then print {l, c, p, w};
+          maxk = max (maxk, sum(beads))
+        )
+      );
+      if maxk >= 0 then (
+        k := maxk + 1;
+        shufinds = append (shufinds, {colset_c, l, {k, k}});
+        cv := subsetCV (l, k, k);
+        for r from 0 to #rowset - 1 do (
+          subdets := {};
+          for v from 0 to #cv - 1 do (
+            if isSubset (colset_c-n * cv_v, cols) then
+            subdets = append (subdets,
+                              det(submatrix(m, rowset_r, colset_c - n * cv_v)))
+          );
+          if sum subdets != 0 then Shtemp = append (Shtemp, ideal sum subdets)
+        )
+      )
+    );
+    if sum Shtemp == 0 then
+    Sh = append (Sh, ideal 0_R) else Sh = append (Sh, sum Shtemp)
+  );
+  {Sh, shufinds}
+)
+
+-- sum ideals given in lists
+idealSum = (F, G, basering) -> (
+  sum := ideal 0_basering;
+  for f from 0 to #F - 1 do (sum = sum + F_f);
+  for g from 0 to #G - 1 do (sum = sum + G_g);
+  sum
+)
+
+-- calculate multidegree from primary decomposition and rings
+multideg = (P, R, T, wts) -> (
+  wt := map(T, R, wts);
+  M := 0_T;
+  for i from 0 to #P - 1 do (
+    genP := generators P_i;
+    dimn := rank source genP;
+    term := 1_T;
+    for j from 0 to dimn - 1 do term = term * wt genP_(0, j);
+    M = M + term;
+  );
+  M
+)
+
+-- natural isomorphism [delete]
+isom = (S, T) -> (
+  if # generators S == # generators T then (
+    map (S, T, generators S)
+  ) else (
+    print("error: different numbers of generators");
+    return 0;
+  )
+)
+
+-- PUNCHCARDS
+
+-- Designate a punch by an `O' and a non-punch by a period.
+plusDot = (p, i, j) -> if member({i, j}, p) then "O " else ". ";
+
+-- Print a (b, a + b) punchcard and separator in the horizontal orientation.
+printPunchcard = (p, a, b) -> (
+  for i in 1..b do (
+    print concatenate (for j in 1..(a + b) list plusDot (p, i, j))
+  )
+)
+-- in the vertical orientation.
+printTransposePunchcard = (p, a, b) -> (
+  for j in 1..(a + b) do (
+    print concatenate (for i in 1..b list plusDot(p, i, j))
+  )
+)
+
+-- CHUTE AND LADDER MOVES
+
+-- Does the i^th member of a (b, a + b) punchcard P admit a ladder move?
+-- If so then what is its position after the move?
+ladderable = (P, a, b, i) -> (
+  if (P_i)_0 == 1 or (P_i)_1 == a+b then return {false, P_i};
+  if member ({(P_i)_0, (P_i)_1 + 1}, P) then return {false, P_i};
+  check := true;
+  r := (P_i)_0 - 1;
+  while member ({r, (P_i)_1}, P) do (
+    if not member ({r, (P_i)_1 + 1}, P) then check = false;
+    r = r - 1
+  );
+  if (member({r, (P_i)_1 + 1}, P) or r < 1) then check = false;
+  pos = if check then {r, (P_i)_1 + 1} else P_i;
+  return {check, pos}
+)
+-- a chute move?
+chutable = (P, a, b, i) -> (
+  if (P_i)_0 == b or (P_i)_1 == 1 then return {false, P_i};
+  if member ({(P_i)_0 + 1, (P_i)_1}, P) then return {false, P_i};
+  check := true;
+  c := (P_i)_1 - 1;
+  while member ({(P_i)_0, c}, P) do (
+    if not member ({(P_i)_0 + 1, c}, P) then check = false;
+    c = c - 1
+  );
+  if (member({(P_i)_0 + 1, c}, P) or c < 1) then check = false;
+  pos = if check then {(P_i)_0 + 1, c} else P_i;
+  return {check, pos}
+)
+-- an inverse ladder move?
+invLadderable = (P, a, b, i) -> (
+  if (P_i)_0 == b or (P_i)_1 == 1 then return {false, P_i};
+  if member ({(P_i)_0, (P_i)_1 - 1}, P) then return {false, P_i};
+  check := true;
+  r := (P_i)_0 + 1;
+  while member ({r, (P_i)_1}, P) do (
+    if not member ({r, (P_i)_1 - 1}, P) then check = false;
+    r = r + 1
+  );
+  if (member({r, (P_i)_1 - 1}, P) or r > b) then check = false;
+  pos = if check then {r, (P_i)_1 - 1} else P_i;
+  return {check, pos}
+)
+-- an inverse chute move?
+invChutable = (P, a, b, i) -> (
+  if (P_i)_0 == 1 or (P_i)_1 == a+b then return {false, P_i};
+  if member ({(P_i)_0 - 1, (P_i)_1}, P) then return {false, P_i};
+  check := true;
+  c := (P_i)_1 + 1;
+  while member ({(P_i)_0, c}, P) do (
+    if not member ({(P_i)_0 - 1, c}, P) then check = false;
+    c = c + 1
+  );
+  if (member({(P_i)_0 - 1, c}, P) or c > a+b) then check = false;
+  pos = if check then {(P_i)_0 - 1, c} else P_i;
+  return {check, pos}
+)
+
+-- List the admissible moves of the given type.
+listMoves = (P, a, b, movable) -> (
+  moves := {};
+  move := {};
+  for i from 0 to #P - 1 do (
+    move = movable (P, a, b, i);
+    if move_0 then moves = append (moves, {P, i, move_1});
+  );
+  return moves
+)
+-- (ladder and inverse chute only)
+upMoves = (P, a, b) -> (
+  return unique join (listMoves (P, a, b, ladderable),
+                      listMoves (P, a, b, invChutable))
+)
+-- (chute and inverse ladder only)
+downMoves = (P, a, b) -> (
+  return unique join (listMoves (P, a, b, invLadderable),
+                      listMoves (P, a, b, chutable))
+)
+
+-- Perform a move as stored by listMoves.
+doMove = m -> append(delete((m_0)_(m_1), m_0), m_2)
+
+-- List all punchcards obtainable from P via moves of the given type.
+moveClosure = (P, a, b, movable) -> (
+  Q := P;
+  deck := {Q};
+  moves := listMoves (Q, a, b, movable);
+  D := {};
+  while #moves != 0 do (
+    for move in moves do (
+      D = union (D, doMove move);
+      deck = union (deck, D)
+    );
+    moves = listMoves (D, a, b, movable);
+    D = {}
+  );
+  return deck
+)
+
+-- Find the top punchcard connected to P via ladder and inverse chute moves.
+topPunchcard = (P, a, b) -> (
+  Q := P;
+  moves := upMoves (Q, a, b);
+  while #moves > 0 do (
+    Q = doMove moves_0;
+    moves = upMoves (Q, a, b)
+  );
+  return Q
+)
+
+-- Find all top punchcards connected to punchcards in a given deck.
+topPunchcards = (deck, a, b) -> (
+  top := {};
+  tops := {};
+  for d in deck do (
+    top = sort topPunchcard (d, a, b);
+    if not member (top, tops) then tops = append(tops, top)
+  );
+  return tops
+)
+
+-- Find the bottom punchcard connected to P via chute and inverse ladder moves.
+bottomPunchcard = (P, a, b) -> (
+  Q := P;
+  moves := downMoves (Q, a, b);
+  while #moves > 0 do (
+    Q = doMove moves_0;
+    moves = downMoves (Q, a, b)
+  );
+  return Q
+)
+
+-- Find all bottom punchcards connected to punchcards in a given deck.
+bottomPunchcards = (deck, a, b) -> (
+  bot := {};
+  bots := {};
+  for d in deck do (
+    bot = sort bottomPunchcard (d, a, b);
+    if not member (bot, bots) then bots = append(bots, bot)
+  );
+  return bots
+)
+
+-- Is the given deck of punchcards closed under chute and inverse chute moves?
+isChuteClosed = (deck, a, b) -> (
+  sortDeck = for d in deck list sort d;
+  ms := {};
+  for i from 0 to #deck - 1 do (
+    ms = unique join (listMoves (deck_i, a, b, chutable),
+                      listMoves (deck_i, a, b, invChutable));
+    for j from 0 to #ms - 1 do (
+      if not member (sort (doMove (ms_j)), deck) then (
+        printPunchcard (sort (doMove (ms_j)), a, b);
+        return false
+      )
+    )
+  );
+  return true
+)
+
+-- Check that a deck is chute-closed and partition it into its components.
+deckComponents = (deck, a, b) -> (
+  if not isChuteClosed (deck, a, b) then return false;
+  tops = topPunchcards (deck, a, b);
+  comp := {};
+  cms := {};
+  children := {};
+  contained := false;
+  comps := {};
+  for t in tops do (
+    comp = {t};
+    contained = false;
+    while not contained do (
+      children = {};
+      cms = {};
+      for d in comp do cms = unique join (cms, listMoves (d, a, b, chutable));
+      for cm in cms do children = append (children, sort doMove cm);
+      contained = true;
+      for child in children do contained = contained and member (child, comp);
+      comp = unique join (comp, children)
+    );
+    comps = append(comps, comp)
+  );
+  return comps
+)
+
+-- In the first generators of a ring, compute the weight of a punchcard.
+punchcardWeight = (P, R) -> (
+  wt := 1;
+  for i from 0 to #P - 1 do wt = wt * (gens R)_((P_i)_0 - 1);
+  return wt
+)
+-- of a deck of punchcards.
+deckWeight = (deck, R) -> (
+  wt := 0;
+  for P in deck do wt = wt + punchcardWeight (P, R);
+  return wt
+)
+
+-- PERMUTATION CODES [more in allCustoms.txt; take a punchcard to its Schurs]
+
+codeToWindow = codeSeq -> (
+  cS := codeSeq;
+  z := -min append (for i from 0 to #cS - 1 list #cS - i - cS_i - 1, 0);
+  if z > 0 then cS = join (cS, for i from 1 to z list 0);
+  remaining := toList (1..#cS);
+  window := {};
+  for i from 0 to #cS - 1 do (
+    window = append (window, remaining_(cS_i));
+    remaining = drop (remaining, {cS_i, cS_i})
+  );
+  return window
+)
+
+windowToCode = window -> (
+  codeSeq := {};
+  hit := {};
+  for i from 0 to #window - 1 do (
+    hit = append (hit, window_i);
+    bubbleCount = 0;
+    for n from 1 to window_i - 1 do (
+      if not member(n, hit) then bubbleCount = bubbleCount + 1
+    );
+    codeSeq = append (codeSeq, bubbleCount)
+  );
+  return codeSeq
+)
+
+-- CALCULATIONS
+
+MASVIdeal = (n, gamma, a, b, kk) -> (
+  if not partitionIsCore (gamma, n) then error "not a " | n | "-core";
+  if a < #(delete (0, gamma)) or b < gamma_0 then error "inadequate box";
+  gammaT := transposePartition gamma;
+  lambda := apply(1..#gammaT, i -> a - gammaT_(#gammaT - i));
+  pivs := append (
+    for i from 0 to #(lambda) - 1 list i + lambda_(#(lambda) - 1 - i), a + b
+  );
+  R := kk[z_(0, 0)..z_(a + b - 1, b - 1)];
+  m := matrix table (b, a + b, (i, j) -> z_(j, i));
+  minorGens := ladderMinors(lambda, a, b, m, toList (0..(b - 1)), pivs, R);
+  shuffleGens := windowShuffles(n, m, toList (0..(b - 1)),
+                                toList (0..(a + b - 1)), pivs, R);
+  return {R, trim idealSum (minorGens_0, shuffleGens_0, R)}
+)
+
+MASVIdealIsGrobner = (n, gamma, a, b, kk) -> (
+  if not partitionIsCore (gamma, n) then error "not a " | n | "-core";
+  if a < #(delete (0, gamma)) or b < gamma_0 then error "inadequate box";
+  gammaT := transposePartition gamma;
+  lambda := apply(1..#gammaT, i -> a - gammaT_(#gammaT - i));
+  pivs := append (
+    for i from 0 to #(lambda) - 1 list i + lambda_(#(lambda) - 1 - i), a + b
+  );
+  R := kk[z_(0, 0)..z_(a + b - 1, b - 1)];
+  m := matrix table (b, a + b, (i, j) -> z_(j, i));
+  minorGens := ladderMinors(lambda, a, b, m, toList (0..(b - 1)), pivs, R);
+  shuffleGens := windowShuffles(n, m, toList (0..(b - 1)),
+                                toList (0..(a + b - 1)), pivs, R);
+  leadingMinors := for g in shuffleGens_0 list monomialIdeal g;
+  I := trim idealSum (minorGens_0, shuffleGens_0, R);
+  gI := trim idealSum (minorGens_0, leadingMinors, R);
+  J := monomialIdeal I;
+  return gI == J
+)
+
+MASVMultidegree = (n, gamma, a, b, kk) -> (
+  RI := MASVIdeal (n, gamma, a, b, kk);
+  use RI_0;
+  J := monomialIdeal RI_1;
+  P := if J == 0 then {J} else primaryDecomposition(J);
+  T := kk[x_1..x_b];
+  xwts := flatten (for i from 1 to a + b list (for j from 1 to b list (x_j)_T));
+  return {T, multideg (P, RI_0, T, xwts)};
+)
+
+MASVPDMultidegree = (n, gamma, a, b, kk) -> (
+  TM := MASVMultidegree (n, gamma, a, b, kk);
+  S := kk[x_0..x_(b-1)];
+  isom := map (S, TM_0, generators S);
+  return {S, isom TM_1}
+)
+
+MASVDeckWeight = (n, gamma, a, b, kk) -> (
+  RI := MASVIdeal (n, gamma, a, b, kk);
+  use RI_0;
+  J := monomialIdeal RI_1;
+  P := if J == 0 then {J} else primaryDecomposition(J);
+  deck := {};
+  for k from 0 to #P - 1 do (
+    card = {};
+    for j from 1 to a + b do for i from 1 to b do
+      if z_(j - 1, i - 1) % P_k == 0 then card = append (card, {i, j});
+    deck = append (deck, sort card);
+  );
+  if not isChuteClosed (deck, a, b) then error "not chute-closed";
+  T := kk[x_1..x_b];
+  return {T, deckWeight (deck, T)}
+)
+
+MASVComponentwise = (n, gamma, a, b, kk) -> (
+  RI := MASVIdeal (n, gamma, a, b, kk);
+  use RI_0;
+  J := monomialIdeal RI_1;
+  P := if J == 0 then {J} else primaryDecomposition(J);
+  deck := {};
+  for k from 0 to #P - 1 do (
+    card = {};
+    for j from 1 to a + b do for i from 1 to b do
+      if z_(j - 1, i - 1) % P_k == 0 then card = append (card, {i, j});
+    deck = append (deck, sort(card));
+  );
+  if not isChuteClosed (deck, a, b) then error "not chute-closed";
+  comps := deckComponents (deck, a, b);
+  for comp in comps do (
+    printTransposePunchcard (bottomPunchcard (comp_0, a, b), a, b);
+    print concatenate (for j in 1..(2 * b) list "-")
+  );
+  T := kk[x_1..x_b];
+  return {T, for comp in comps list deckWeight (comp, T)}
+)

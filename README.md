@@ -1,12 +1,12 @@
 # Macaulay2 code for matrix affine Schubert varieties
 
-This repo contains Macaulay2 code used to compute ideal generators and generate combinatorial statistics for matrix affine Schubert varieties, as reported in my doctoral thesis [^thesis].
+This repo contains Macaulay2 code used to compute ideal generators and generate combinatorial statistics for matrix affine Schubert varieties, as reported in my doctoral thesis [thesis].
 
 ## Organization
 
 I never learned how to properly organize a Macaulay2 project, let alone a package! Organizational pull requests would be very welcome.
 
-Currently the repo consists of a single file containing the functions used to perform calculations. Those calculations begin with the following parameters (page numbers refer to [^thesis]):
+Currently the repo consists of a single file containing the functions used to perform calculations. Those calculations begin with the following parameters (page numbers refer to [thesis]):
 
 - `n`, the dimension (over the ring of formal power series) of the affine Grassmannian (p. 21)
 - `gamma`, the `n`-core of a Grassmannian permutation $w$ (p. 26, 32)
@@ -33,4 +33,4 @@ Members of the Focused Research Group on “Affine Schubert Calculus: Combinator
 
 This work was partially funded by NSF grant DMS-0652641 and DMS-0652648.
 
-[^thesis]: Brunson JC (2014) "Matrix Schubert varieties for the affine Grassmannian". PhD thesis, Virginia Tech.
+[thesis]: Brunson JC (2014) "Matrix Schubert varieties for the affine Grassmannian". PhD thesis, Virginia Tech.

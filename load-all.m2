@@ -1,0 +1,5 @@
+load "code/algebraic-combinatorics.m2"
+load "code/partitions.m2"
+load "code/ideal-generators.m2"
+load "code/punchcards.m2"
+load "code/masvs.m2"

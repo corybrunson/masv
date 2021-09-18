@@ -1,6 +1,6 @@
 # Macaulay2 code for matrix affine Schubert varieties
 
-This repo contains Macaulay2 code used to compute ideal generators and generate combinatorial statistics for matrix affine Schubert varieties, as reported in my doctoral thesis [1].
+This repo contains Macaulay2 code used to compute ideal generators and generate combinatorial statistics for matrix affine Schubert varieties, as reported in my doctoral thesis [1] (p. 135).
 
 ## Organization
 
@@ -11,7 +11,11 @@ Currently the repo consists of a single file containing the functions used to pe
 - `n`, the dimension (over the ring of formal power series) of the affine Grassmannian (p. 21)
 - `gamma`, the `n`-core of a Grassmannian permutation $w$ (p. 26, 32)
 - `a` and `b`, which encode the dimensions ($h=a,l=b,m=a+b$) of the finite Grassmannian in which the affine Schubert cell of $w$ is to be embedded (p. 31) and therefore of the matrix space that contains the matrix affine Schubert variety (p. 47)
-- `kk`, the finite field over which the ideals will be generated (i defaulted to `kk = ZZ/32003`)
+- `kk`, the finite field over which the ideals will be generated (i defaulted to `kk = ZZ/32003`, p. 135)
+
+### `organize` branch
+
+[This branch](https://github.com/corybrunson/masv/tree/organize) contains an experimental reorganization along with some examples.
 
 ## Acknowledgments
 

@@ -668,7 +668,7 @@ MASVMultidegree = (n, gamma, a, b, kk) -> (
   use RI_0;
   J := monomialIdeal RI_1;
   P := if J == 0 then {J} else primaryDecomposition(J);
-  T := kk[x_1..x_b];
+  T := kk[x_1..x_b, MonomialOrder=>GRevLex=>splice {1..b}];
   xwts := flatten (for i from 1 to a + b list (for j from 1 to b list (x_j)_T));
   return {T, multideg (P, RI_0, T, xwts)};
 )
@@ -693,7 +693,7 @@ MASVDeckWeight = (n, gamma, a, b, kk) -> (
     deck = append (deck, sort card);
   );
   if not isChuteClosed (deck, a, b) then error "not chute-closed";
-  T := kk[x_1..x_b];
+  T := kk[x_1..x_b, MonomialOrder=>GRevLex=>splice {1..b}];
   return {T, deckWeight (deck, T)}
 )
 
@@ -715,6 +715,6 @@ MASVComponentwise = (n, gamma, a, b, kk) -> (
     printTransposePunchcard (bottomPunchcard (comp_0, a, b), a, b);
     print concatenate (for j in 1..(2 * b) list "-")
   );
-  T := kk[x_1..x_b];
+  T := kk[x_1..x_b, MonomialOrder=>GRevLex=>splice {1..b}];
   return {T, for comp in comps list deckWeight (comp, T)}
 )

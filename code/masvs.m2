@@ -86,7 +86,7 @@ MASVComponentwise = (n, gamma, a, b, kk) -> (
   if not isChuteClosed (deck, a, b) then error "not chute-closed";
   comps := deckComponents (deck, a, b);
   for comp in comps do (
-    printTransposePunchcard (bottomPunchcard (comp_0, a, b), a, b);
+    printTransposePunchcard (topPunchcard (comp_0, a, b), a, b);
     print concatenate (for j in 1..(2 * b) list "-")
   );
   T := kk[x_1..x_b, MonomialOrder=>GRevLex=>splice {1..b}];
